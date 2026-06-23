@@ -12,12 +12,30 @@
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
+    "views": {
+      "explorer": [
+        {
+          "id": "imageTracker",
+          "name": "Image Tracker"
+        }
+      ]
+    },
     "commands": [
       {
-        "command": "image-tracker.helloWorld",
-        "title": "Hello World"
+        "command": "image-tracker.refreshImages",
+        "title": "Refresh Images",
+        "icon": "$(refresh)"
       }
-    ]
+    ],
+    "menus": {
+      "view/title": [
+        {
+          "command": "image-tracker.refreshImages",
+          "when": "view == imageTracker",
+          "group": "navigation"
+        }
+      ]
+    }
   },
   "scripts": {
     "vscode:prepublish": "pnpm run package",
