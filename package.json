@@ -9,6 +9,7 @@
   "categories": [
     "Other"
   ],
+
   "activationEvents": [],
   "main": "./dist/extension.js",
   "contributes": {
@@ -16,7 +17,9 @@
       "explorer": [
         {
           "id": "imageTracker",
-          "name": "Image Tracker"
+          "name": "Image Tracker",
+          "icon": "icono.png"
+          
         }
       ]
     },

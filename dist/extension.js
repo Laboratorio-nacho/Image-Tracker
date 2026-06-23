@@ -39,7 +39,9 @@ var vscode3 = __toESM(require("vscode"));
 // src/imageScanner.ts
 var vscode = __toESM(require("vscode"));
 var path = __toESM(require("path"));
-var IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico"];
+var IMAGE_EXTENSIONS = ["png", "jpg", "jpeg", "gif", "svg", "webp", "bmp", "ico", "avif", "tiff", "tif"];
+var IGNORE_PATTERNS = "**/{node_modules,.git,dist,out,.vscode-test}/**";
+var REFERENCE_EXTENSIONS = "{md,html,ts,tsx,js,jsx,css,scss,less,vue,svelte,json,yml,yaml}";
 var ImageScanner = class {
   disposables = [];
   fileWatcher;
@@ -51,7 +53,7 @@ var ImageScanner = class {
       return [];
     }
     const pattern = `**/*.{${IMAGE_EXTENSIONS.join(",")}}`;
-    const imageUris = await vscode.workspace.findFiles(pattern, "**/node_modules/**");
+    const imageUris = await vscode.workspace.findFiles(pattern, IGNORE_PATTERNS);
     const items = [];
     for (const uri of imageUris) {
       const references = await this.findReferences(uri);
@@ -69,8 +71,8 @@ var ImageScanner = class {
     const imageName = path.basename(escapedPath);
     const refs = [];
     const files = await vscode.workspace.findFiles(
-      "**/*.{md,html,ts,tsx,js,jsx,css,scss,less,vue,svelte,json,yml,yaml}",
-      "**/node_modules/**"
+      `**/*.${REFERENCE_EXTENSIONS}`,
+      IGNORE_PATTERNS
     );
     for (const file of files) {
       if (file.fsPath === imageUri.fsPath) {
@@ -96,8 +98,9 @@ var ImageScanner = class {
   }
   watch() {
     this.dispose();
-    const pattern = `**/*.{${IMAGE_EXTENSIONS.join(",")}}`;
-    this.fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+    const imgPattern = `**/*.{${IMAGE_EXTENSIONS.join(",")}}`;
+    const refPattern = `**/*.${REFERENCE_EXTENSIONS}`;
+    this.fileWatcher = vscode.workspace.createFileSystemWatcher(`{${imgPattern},${refPattern}}`);
     const fireChange = () => this._onDidChange.fire();
     this.disposables.push(
       this.fileWatcher.onDidCreate(fireChange),

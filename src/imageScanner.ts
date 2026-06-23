@@ -12,7 +12,11 @@ export interface ImageItem {
 	references: ImageReference[];
 }
 
-const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico'];
+const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'avif', 'tiff', 'tif'];
+
+const IGNORE_PATTERNS = '**/{node_modules,.git,dist,out,.vscode-test}/**';
+
+const REFERENCE_EXTENSIONS = '{md,html,ts,tsx,js,jsx,css,scss,less,vue,svelte,json,yml,yaml}';
 
 export class ImageScanner {
 	private disposables: vscode.Disposable[] = [];
@@ -27,7 +31,7 @@ export class ImageScanner {
 		}
 
 		const pattern = `**/*.{${IMAGE_EXTENSIONS.join(',')}}`;
-		const imageUris = await vscode.workspace.findFiles(pattern, '**/node_modules/**');
+		const imageUris = await vscode.workspace.findFiles(pattern, IGNORE_PATTERNS);
 
 		const items: ImageItem[] = [];
 		for (const uri of imageUris) {
@@ -50,8 +54,8 @@ export class ImageScanner {
 
 		const refs: ImageReference[] = [];
 		const files = await vscode.workspace.findFiles(
-			'**/*.{md,html,ts,tsx,js,jsx,css,scss,less,vue,svelte,json,yml,yaml}',
-			'**/node_modules/**'
+			`**/*.${REFERENCE_EXTENSIONS}`,
+			IGNORE_PATTERNS
 		);
 
 		for (const file of files) {
@@ -82,8 +86,9 @@ export class ImageScanner {
 
 	watch(): void {
 		this.dispose();
-		const pattern = `**/*.{${IMAGE_EXTENSIONS.join(',')}}`;
-		this.fileWatcher = vscode.workspace.createFileSystemWatcher(pattern);
+		const imgPattern = `**/*.{${IMAGE_EXTENSIONS.join(',')}}`;
+		const refPattern = `**/*.${REFERENCE_EXTENSIONS}`;
+		this.fileWatcher = vscode.workspace.createFileSystemWatcher(`{${imgPattern},${refPattern}}`);
 
 		const fireChange = () => this._onDidChange.fire();
 		this.disposables.push(
