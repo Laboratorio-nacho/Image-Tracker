@@ -2,6 +2,20 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { ImageItem, ImageReference } from './imageScanner';
 
+const USED_ICON = statusIcon('#2da44e');
+const UNUSED_ICON = statusIcon('#e5533d');
+
+function statusIcon(color: string): vscode.Uri {
+	const svg = [
+		'<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16">',
+		`  <circle cx="1.5" cy="8" r="1.5" fill="${color}"/>`,
+		'  <path d="M10 0H4.5A1.5 1.5 0 0 0 3 1.5v13A1.5 1.5 0 0 0 4.5 16h7A1.5 1.5 0 0 0 13 14.5V5L10 0z" fill="#C5C5C5"/>',
+		'  <path d="M10 0v3a2 2 0 0 0 2 2h1" fill="none" stroke="#C5C5C5" stroke-width="1"/>',
+		'</svg>',
+	].join('\n');
+	return vscode.Uri.parse(`data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`);
+}
+
 export class ImageTreeProvider implements vscode.TreeDataProvider<ImageNode> {
 	private _onDidChangeTreeData = new vscode.EventEmitter<ImageNode | undefined>();
 	readonly onDidChangeTreeData = this._onDidChangeTreeData.event;
@@ -54,7 +68,7 @@ export class ImageTreeProvider implements vscode.TreeDataProvider<ImageNode> {
 					item
 				);
 				node.description = `${item.references.length} ref${item.references.length !== 1 ? 's' : ''}`;
-				node.iconPath = vscode.ThemeIcon.File;
+				node.iconPath = item.references.length > 0 ? USED_ICON : UNUSED_ICON;
 				node.command = {
 					command: 'image-tracker.openImage',
 					title: 'Open Image',
