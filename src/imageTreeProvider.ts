@@ -69,6 +69,7 @@ export class ImageTreeProvider implements vscode.TreeDataProvider<ImageNode> {
 				);
 				node.description = `${item.references.length} ref${item.references.length !== 1 ? 's' : ''}`;
 				node.iconPath = item.references.length > 0 ? USED_ICON : UNUSED_ICON;
+				node.children = this.getReferenceNodes(item);
 				node.command = {
 					command: 'image-tracker.openImage',
 					title: 'Open Image',
