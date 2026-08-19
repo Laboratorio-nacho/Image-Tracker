@@ -1,14 +1,21 @@
 import * as vscode from 'vscode';
 import { ImageScanner } from './imageScanner';
 import { ImageTreeProvider } from './imageTreeProvider';
+import { ImageDecorationProvider } from './imageDecorationProvider';
 
 let scanner: ImageScanner;
 let treeProvider: ImageTreeProvider;
+let decorationProvider: ImageDecorationProvider;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('[image-tracker] activando extensión...');
 	scanner = new ImageScanner();
 	treeProvider = new ImageTreeProvider();
+	decorationProvider = new ImageDecorationProvider(scanner);
+
+	context.subscriptions.push(
+		vscode.window.registerFileDecorationProvider(decorationProvider)
+	);
 
 	const treeView = vscode.window.createTreeView('imageTracker', {
 		treeDataProvider: treeProvider
@@ -55,4 +62,5 @@ export function activate(context: vscode.ExtensionContext) {
 
 export function deactivate() {
 	scanner?.dispose();
+	decorationProvider?.dispose();
 }
