@@ -25,8 +25,10 @@ export class ImageDecorationProvider implements vscode.FileDecorationProvider {
 
 		for (const img of images) {
 			const key = img.uri.toString();
-			this.usedImages.add(key);
-			if (!prev.has(key)) {
+			if (img.references.length > 0) {
+				this.usedImages.add(key);
+			}
+			if (this.usedImages.has(key) !== prev.has(key)) {
 				changed.push(img.uri);
 			}
 		}
