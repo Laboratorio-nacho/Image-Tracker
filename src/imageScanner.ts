@@ -16,7 +16,7 @@ const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ic
 
 const IGNORE_PATTERNS = '**/{node_modules,.git,dist,out,.vscode-test}/**';
 
-const REFERENCE_EXTENSIONS = '{md,html,ts,tsx,js,jsx,css,scss,less,vue,svelte,json,yml,yaml}';
+const REFERENCE_EXTENSIONS = 'md,html,ts,tsx,js,jsx,css,scss,less,vue,svelte,json,yml,yaml';
 
 export class ImageScanner {
 	private disposables: vscode.Disposable[] = [];
@@ -53,6 +53,9 @@ export class ImageScanner {
 		const imageName = path.basename(normalizedPath);
 		const imageNameWithoutExt = path.basename(normalizedPath, path.extname(normalizedPath));
 
+		console.log(`[image-tracker] buscanco refs para: ${normalizedPath}`);
+		console.log(`[image-tracker] patrones: ${[normalizedPath, `./${normalizedPath}`, imageName, imageNameWithoutExt].join(', ')}`);
+
 		const searchPatterns = [
 			normalizedPath,
 			`./${normalizedPath}`,
@@ -62,10 +65,10 @@ export class ImageScanner {
 		];
 
 		const refs: ImageReference[] = [];
-		const files = await vscode.workspace.findFiles(
-			`**/*.{${REFERENCE_EXTENSIONS}}`,
-			IGNORE_PATTERNS
-		);
+		const refPattern = `**/*.{${REFERENCE_EXTENSIONS}}`;
+		console.log(`[image-tracker] pattern de busqueda: ${refPattern}`);
+		const files = await vscode.workspace.findFiles(refPattern, IGNORE_PATTERNS);
+		console.log(`[image-tracker] ${files.length} archivos para revisar`);
 
 		for (const file of files) {
 			if (file.fsPath === imageUri.fsPath) {
@@ -73,13 +76,15 @@ export class ImageScanner {
 			}
 
 			try {
-				const content = (await vscode.workspace.fs.readFile(file)).toString();
+				const bytes = await vscode.workspace.fs.readFile(file);
+				const content = new TextDecoder('utf-8').decode(bytes);
 				const lines = content.split('\n');
 				for (let i = 0; i < lines.length; i++) {
 					const line = lines[i];
 					for (const pattern of searchPatterns) {
 						const col = line.indexOf(pattern);
 						if (col !== -1) {
+							console.log(`[image-tracker] REF ENCONTRADA: ${file.fsPath}:${i+1} (patron: "${pattern}")`);
 							refs.push({ file, line: i + 1, column: col + 1 });
 							break;
 						}
@@ -96,7 +101,7 @@ export class ImageScanner {
 	watch(): void {
 		this.dispose();
 		const imgPattern = `**/*.{${IMAGE_EXTENSIONS.join(',')}}`;
-		const refPattern = `**/*.${REFERENCE_EXTENSIONS}`;
+		const refPattern = `**/*.{${REFERENCE_EXTENSIONS}}`;
 		this.fileWatcher = vscode.workspace.createFileSystemWatcher(`{${imgPattern},${refPattern}}`);
 
 		const fireChange = () => this._onDidChange.fire();
