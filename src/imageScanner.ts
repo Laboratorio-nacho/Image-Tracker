@@ -49,12 +49,21 @@ export class ImageScanner {
 		}
 
 		const relativePath = path.relative(workspaceFolder.uri.fsPath, imageUri.fsPath);
-		const escapedPath = relativePath.replace(/\\/g, '/');
-		const imageName = path.basename(escapedPath);
+		const normalizedPath = relativePath.replace(/\\/g, '/');
+		const imageName = path.basename(normalizedPath);
+		const imageNameWithoutExt = path.basename(normalizedPath, path.extname(normalizedPath));
+
+		const searchPatterns = [
+			normalizedPath,
+			`./${normalizedPath}`,
+			`../${normalizedPath}`,
+			imageName,
+			imageNameWithoutExt,
+		];
 
 		const refs: ImageReference[] = [];
 		const files = await vscode.workspace.findFiles(
-			`**/*.${REFERENCE_EXTENSIONS}`,
+			`**/*.{${REFERENCE_EXTENSIONS}}`,
 			IGNORE_PATTERNS
 		);
 
@@ -68,12 +77,12 @@ export class ImageScanner {
 				const lines = content.split('\n');
 				for (let i = 0; i < lines.length; i++) {
 					const line = lines[i];
-					let col = line.indexOf(escapedPath);
-					if (col === -1) {
-						col = line.indexOf(imageName);
-					}
-					if (col !== -1) {
-						refs.push({ file, line: i + 1, column: col + 1 });
+					for (const pattern of searchPatterns) {
+						const col = line.indexOf(pattern);
+						if (col !== -1) {
+							refs.push({ file, line: i + 1, column: col + 1 });
+							break;
+						}
 					}
 				}
 			} catch {

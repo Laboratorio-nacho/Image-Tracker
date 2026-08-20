@@ -6,6 +6,7 @@ import { ImageDecorationProvider } from './imageDecorationProvider';
 let scanner: ImageScanner;
 let treeProvider: ImageTreeProvider;
 let decorationProvider: ImageDecorationProvider;
+let refreshTimeout: NodeJS.Timeout | undefined;
 
 export function activate(context: vscode.ExtensionContext) {
 	console.log('[image-tracker] activando extensión...');
@@ -53,7 +54,12 @@ export function activate(context: vscode.ExtensionContext) {
 	);
 
 	scanner.onDidChange(() => {
-		vscode.commands.executeCommand('image-tracker.refreshImages');
+		if (refreshTimeout) {
+			clearTimeout(refreshTimeout);
+		}
+		refreshTimeout = setTimeout(() => {
+			vscode.commands.executeCommand('image-tracker.refreshImages');
+		}, 500);
 	});
 
 	scanner.watch();
