@@ -16,78 +16,112 @@ const IMAGE_EXTENSIONS = ['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ic
 
 const IGNORE_PATTERNS = '**/{node_modules,.git,dist,out,.vscode-test}/**';
 
-const REFERENCE_EXTENSIONS = '{md,html,ts,tsx,js,jsx,css,scss,less,vue,svelte,json,yml,yaml}';
+const REFERENCE_EXTENSIONS = 'md,html,ts,tsx,js,jsx,css,scss,less,vue,svelte,json,yml,yaml';
 
 export class ImageScanner {
 	private disposables: vscode.Disposable[] = [];
 	private fileWatcher: vscode.FileSystemWatcher | undefined;
 	private _onDidChange = new vscode.EventEmitter<void>();
 	readonly onDidChange = this._onDidChange.event;
+	private _onDidChangeImages = new vscode.EventEmitter<ImageItem[]>();
+	readonly onDidChangeImages = this._onDidChangeImages.event;
+	private currentCts: vscode.CancellationTokenSource | undefined;
 
 	async scanImages(): Promise<ImageItem[]> {
+		if (this.currentCts) {
+			this.currentCts.cancel();
+		}
+		this.currentCts = new vscode.CancellationTokenSource();
+		const token = this.currentCts.token;
+
 		const workspaceFolders = vscode.workspace.workspaceFolders;
 		if (!workspaceFolders) {
 			return [];
 		}
 
-		const pattern = `**/*.{${IMAGE_EXTENSIONS.join(',')}}`;
-		const imageUris = await vscode.workspace.findFiles(pattern, IGNORE_PATTERNS);
+		const imagePattern = `**/*.{${IMAGE_EXTENSIONS.join(',')}}`;
+		const imageUris = await vscode.workspace.findFiles(imagePattern, IGNORE_PATTERNS, undefined, token);
 
-		const items: ImageItem[] = [];
-		for (const uri of imageUris) {
-			const references = await this.findReferences(uri);
-			items.push({ uri, references });
-		}
-
-		return items;
-	}
-
-	private async findReferences(imageUri: vscode.Uri): Promise<ImageReference[]> {
-		const workspaceFolder = vscode.workspace.getWorkspaceFolder(imageUri);
-		if (!workspaceFolder) {
+		if (token.isCancellationRequested) {
 			return [];
 		}
 
-		const relativePath = path.relative(workspaceFolder.uri.fsPath, imageUri.fsPath);
-		const escapedPath = relativePath.replace(/\\/g, '/');
-		const imageName = path.basename(escapedPath);
+		const imagePaths = new Map<string, vscode.Uri>();
+		const imageSearchTerms = new Map<string, string[]>();
 
-		const refs: ImageReference[] = [];
-		const files = await vscode.workspace.findFiles(
-			`**/*.${REFERENCE_EXTENSIONS}`,
-			IGNORE_PATTERNS
-		);
-
-		for (const file of files) {
-			if (file.fsPath === imageUri.fsPath) {
+		for (const uri of imageUris) {
+			const workspaceFolder = vscode.workspace.getWorkspaceFolder(uri);
+			if (!workspaceFolder) {
 				continue;
 			}
 
+			const relativePath = path.relative(workspaceFolder.uri.fsPath, uri.fsPath);
+			const normalizedPath = relativePath.replace(/\\/g, '/');
+			const imageName = path.basename(normalizedPath);
+			const imageNameWithoutExt = path.basename(normalizedPath, path.extname(normalizedPath));
+
+			const key = normalizedPath.toLowerCase();
+			imagePaths.set(key, uri);
+			imageSearchTerms.set(key, [
+				normalizedPath,
+				`./${normalizedPath}`,
+				`../${normalizedPath}`,
+				imageName,
+				imageNameWithoutExt,
+			]);
+		}
+
+		const refsMap = new Map<string, ImageReference[]>();
+		for (const key of imagePaths.keys()) {
+			refsMap.set(key, []);
+		}
+
+		const refPattern = `**/*.{${REFERENCE_EXTENSIONS}}`;
+		const codeFiles = await vscode.workspace.findFiles(refPattern, IGNORE_PATTERNS, undefined, token);
+
+		if (token.isCancellationRequested) {
+			return [];
+		}
+
+		for (const file of codeFiles) {
 			try {
-				const content = (await vscode.workspace.fs.readFile(file)).toString();
+				const bytes = await vscode.workspace.fs.readFile(file);
+				const content = new TextDecoder('utf-8').decode(bytes);
 				const lines = content.split('\n');
+
 				for (let i = 0; i < lines.length; i++) {
-					const line = lines[i];
-					let col = line.indexOf(escapedPath);
-					if (col === -1) {
-						col = line.indexOf(imageName);
-					}
-					if (col !== -1) {
-						refs.push({ file, line: i + 1, column: col + 1 });
+					const lowerLine = lines[i].toLowerCase();
+					for (const [key, patterns] of imageSearchTerms) {
+						for (const pattern of patterns) {
+							const col = lowerLine.indexOf(pattern.toLowerCase());
+							if (col !== -1) {
+								const existing = refsMap.get(key);
+								if (existing) {
+									existing.push({ file, line: i + 1, column: col + 1 });
+								}
+								break;
+							}
+						}
 					}
 				}
 			} catch {
-				// skip binary files
+				// skip unreadable files
 			}
 		}
 
-		return refs;
+		const items: ImageItem[] = [];
+		for (const [key, uri] of imagePaths) {
+			items.push({ uri, references: refsMap.get(key) || [] });
+		}
+
+		this._onDidChangeImages.fire(items);
+		return items;
 	}
 
 	watch(): void {
 		this.dispose();
 		const imgPattern = `**/*.{${IMAGE_EXTENSIONS.join(',')}}`;
-		const refPattern = `**/*.${REFERENCE_EXTENSIONS}`;
+		const refPattern = `**/*.{${REFERENCE_EXTENSIONS}}`;
 		this.fileWatcher = vscode.workspace.createFileSystemWatcher(`{${imgPattern},${refPattern}}`);
 
 		const fireChange = () => this._onDidChange.fire();
@@ -99,6 +133,7 @@ export class ImageScanner {
 	}
 
 	dispose(): void {
+		this.currentCts?.cancel();
 		this.disposables.forEach(d => d.dispose());
 		this.disposables = [];
 	}
