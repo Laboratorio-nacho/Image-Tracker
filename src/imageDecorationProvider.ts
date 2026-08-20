@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { ImageScanner } from './imageScanner';
+import { ImageScanner, ImageItem } from './imageScanner';
 
 const IMAGE_EXTENSIONS = new Set(['png', 'jpg', 'jpeg', 'gif', 'svg', 'webp', 'bmp', 'ico', 'avif', 'tiff', 'tif']);
 
@@ -12,14 +12,12 @@ export class ImageDecorationProvider implements vscode.FileDecorationProvider {
 
 	constructor(private scanner: ImageScanner) {
 		this.disposables.push(
-			this.scanner.onDidChange(() => this.refresh())
+			this.scanner.onDidChangeImages(images => this.update(images))
 		);
 	}
 
-	async refresh(): Promise<void> {
+	update(images: ImageItem[]): void {
 		const prev = new Set(this.usedImages);
-		const images = await this.scanner.scanImages();
-
 		this.usedImages.clear();
 		const changed: vscode.Uri[] = [];
 
