@@ -2,7 +2,7 @@
   "name": "image-tracker",
   "displayName": "Image-Tracker",
   "description": "Track and preview images from your workspace in a dedicated sidebar panel",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publisher": "nacho-ofc",
   "icon": "icono.png",
   "engines": {
